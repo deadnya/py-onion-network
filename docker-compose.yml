@@ -1,0 +1,46 @@
+version: "3.8"
+services:
+  server1:
+    build: .
+    environment:
+      - SERVICE_TYPE=server1
+    ports:
+      - "9001:9001"
+    networks:
+      - onion_network
+
+  server2:
+    build: .
+    environment:
+      - SERVICE_TYPE=server2
+    ports:
+      - "9002:9002"
+    networks:
+      - onion_network
+    depends_on:
+      - server1
+
+  destination:
+    build: .
+    environment:
+      - SERVICE_TYPE=destination
+    ports:
+      - "9003:9003"
+    networks:
+      - onion_network
+    depends_on:
+      - server2
+
+  client:
+    build: .
+    environment:
+      - SERVICE_TYPE=client
+    ports:
+      - "8000:8000"
+    networks:
+      - onion_network
+    depends_on:
+      - destination
+
+networks:
+  onion_network:
