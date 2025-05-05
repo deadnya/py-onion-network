@@ -92,6 +92,7 @@ class Server:
                     try:
                         response = "Message received by destination!"
                         response_encrypted = enc.encrypt(response.encode('utf-8'), session_key)
+                        logging.info(f"Encrypted response: {response_encrypted}")
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as response_socket:
                             response_socket.connect(("client", 8000))
                             response_socket.sendall(response_encrypted)

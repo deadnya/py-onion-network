@@ -15,6 +15,8 @@ class Client:
         self.listening_port = 8000
 
     def get_server_public_keys(self):
+        logging.info("Requesting public keys from servers...")
+
         for addr in self.server_addresses:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect(addr)
@@ -28,7 +30,7 @@ class Client:
                 public_key = enc.Point(public_key_x, public_key_y)
 
                 self.server_public_keys[addr] = public_key
-                print(f"Received public key from {addr}")
+                logging.info(f"Received public key from {addr}: {public_key}")
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect(self.destination_address)
@@ -42,23 +44,28 @@ class Client:
             public_key = enc.Point(public_key_x, public_key_y)
 
             self.server_public_keys[self.destination_address] = public_key
-            print(f"Received public key from {self.destination_address}")
+            logging.info(f"Received public key from {self.destination_address}: {public_key}")
 
     def build_onion(self, message):
         onion = message.encode('utf-8')
         routing_info = {}
 
         session_key = enc.derive_session_key(self.client_private_key, self.server_public_keys[self.destination_address])
+        logging.info(f"Destination session key: {session_key}")
+
         if session_key is None:
             raise ValueError("Could not derive session key for destination")
         self.session_keys[self.destination_address] = session_key
 
+        logging.info(f"Original onion payload: {onion}")
         onion = enc.encrypt(onion, session_key)
+        logging.info(f"Encrypted payload: {onion}")
 
         routing_info[self.destination_address] = "FINAL_DESTINATION"
 
         for addr in reversed(self.server_addresses):
             session_key = enc.derive_session_key(self.client_private_key, self.server_public_keys[addr])
+            logging.info(f"Server {addr} session key: {session_key}")
 
             if session_key is None:
                 raise ValueError("Could not derive session key")
@@ -72,10 +79,11 @@ class Client:
                 "routing_info": routing_info[addr],
                 "encrypted_message": onion.decode('utf-8')
             }
-
+            
+            logging.info(f"Original onion payload: {payload}")
             payload_json = json.dumps(payload).encode('utf-8')
-
             onion = enc.encrypt(payload_json, session_key)
+            logging.info(f"Encrypted payload: {onion}")
 
 
         return onion, routing_info
@@ -112,12 +120,12 @@ class Client:
 
         conn, addr = sock.accept()
         with conn:
-            print('Connected by', addr)
+            logging.info(f"Connected by: {addr}")
             encrypted_response = conn.recv(4096)
             if not encrypted_response:
-                print("No response received.")
+                logging.info("No response received.")
                 return
 
             response = enc.decrypt(encrypted_response, self.session_keys[self.destination_address])
-            print(f"Received response: {response}")
+            logging.info(f"Received response: {response}")
         sock.close()
